@@ -1,4 +1,4 @@
-# SecurePay — AI-Powered UPI Fraud Detection System
+# SecurePay — Anomaly Detection System for Payment Gateway Platforms
 
 > 🌐 **Live Demo:** [Add your link here once deployed]
 
