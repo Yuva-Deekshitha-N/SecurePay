@@ -1,4 +1,4 @@
-# SecurePay — Anomaly Detection System for Payment Gateway Platforms
+# SecurePay — AI-Powered UPI Fraud Detection System
 
 > 🌐 **Live Demo:** [Add your link here once deployed]
 
@@ -122,6 +122,7 @@ Each payment triggers the CNN model with 23 features:
 - Amount ≥ ₹1,00,000 with unusual ratio → **Auto-blocked**, no confirmation
 
 ---
+
 ## Project Summary
 
 SecurePay was built to simulate a real-world UPI payment system with AI-powered fraud prevention at its core. Here's a quick overview of what the system does end-to-end:
@@ -164,7 +165,6 @@ Score < threshold  →  SUCCESS
 - Spending trend only flagged when amount > ₹5,000 AND this month is 10x+ last month
 
 ---
-
 
 ## License
 
