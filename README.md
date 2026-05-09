@@ -122,32 +122,49 @@ Each payment triggers the CNN model with 23 features:
 - Amount ≥ ₹1,00,000 with unusual ratio → **Auto-blocked**, no confirmation
 
 ---
+## Project Summary
 
-## Default Admin Login
+SecurePay was built to simulate a real-world UPI payment system with AI-powered fraud prevention at its core. Here's a quick overview of what the system does end-to-end:
 
+**User Flow**
+1. User enters mobile number → OTP sent to registered email
+2. OTP verified → session created with device fingerprint
+3. User initiates payment → CNN model scores the transaction in real-time
+4. Based on fraud score and amount, transaction is either approved, flagged for DOB confirmation, or blocked
+
+**Merchant Flow**
+1. Any user can register as a merchant with a UPI ID and category
+2. A QR code is auto-generated for the merchant's UPI
+3. Merchants can view all incoming transactions on their dashboard
+
+**Admin Flow**
+1. Admin logs in with username + password (MD5 hashed)
+2. Full control over users, merchants, and transaction records
+3. Can create, edit, or delete user accounts
+
+**Fraud Detection Pipeline**
 ```
-Username: admin
-Password: admin123
+Payment Request
+     ↓
+Extract 23 features (behavioral + device + location + account)
+     ↓
+Label encode categoricals → Scale with StandardScaler
+     ↓
+CNN model predicts fraud score (0.0 – 1.0)
+     ↓
+Score ≥ threshold  →  BLOCKED
+Amount ≥ ₹50,000 + high ratio  →  DOB confirmation
+Score < threshold  →  SUCCESS
 ```
 
-> Change this immediately after setup.
+**Key Design Decisions**
+- Threshold tuned to `0.08` to catch real fraud while ignoring small noise
+- Haversine formula used to calculate distance from user's home state
+- Device fingerprint stored on first login, compared on every payment
+- Spending trend only flagged when amount > ₹5,000 AND this month is 10x+ last month
 
 ---
 
-## Sample Test Users
-
-| Name | Mobile | DOB |
-|---|---|---|
-| Test User | 8888888888 | 2000-01-01 |
-| Deekshitha | 7702777044 | 2004-05-18 |
-
----
-
-## Screenshots
-
-> Add screenshots here after deployment
-
----
 
 ## License
 
