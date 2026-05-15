@@ -103,6 +103,25 @@ Visit `http://localhost:5000`
 
 ---
 
+## Dataset
+
+This project uses a transaction dataset for fraud/anomaly detection in payment gateway systems.
+
+### Dataset Features
+- Transaction ID
+- Amount
+- Transaction Type
+- Device Information
+- Location
+- Time Stamp
+- Payment Method
+- Fraud Label
+
+### Dataset Details
+- Format: CSV
+- Preprocessed using Python and Pandas
+- Used for training and evaluating the CNN model
+
 ## How Fraud Detection Works
 
 Each payment triggers the CNN model with 23 features:
@@ -123,6 +142,15 @@ Each payment triggers the CNN model with 23 features:
 
 ---
 
+### Model Performance
+- Accuracy: 98.65%
+- Precision (Fraud): 91.94%
+- Recall (Fraud): 85.09%
+- F1-Score (Fraud): 88.38%
+- ROC-AUC: 0.9934
+- PR-AUC: 0.9483
+- Decision Threshold: 0.43
+  
 ## Project Summary
 
 SecurePay was built to simulate a real-world UPI payment system with AI-powered fraud prevention at its core. Here's a quick overview of what the system does end-to-end:
