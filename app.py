@@ -9,7 +9,8 @@ import qrcode
 import os
 import mysql.connector
 import random
-import smtplib
+import requests
+
 import hashlib
 import time
 import numpy as np
@@ -17,14 +18,28 @@ import joblib
 import math
 from tensorflow.keras.models import load_model
 
-from email.mime.text import MIMEText
+
 from config import DB_CONFIG
 from config import EMAIL_CONFIG
 from datetime import datetime, date
+import pytz
+
+
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
 
+
+
+
+model = None
+scaler = None
+le_bank = None
+le_category = None
+le_device = None
+le_network = None
+feature_names = None
+threshold = None
 
 # ==========================
 # HAVERSINE DISTANCE
@@ -60,15 +75,15 @@ STATE_COORDS = {
 # ==========================
 # LOAD ML MODEL
 # ==========================
-model = load_model('model/upi_fraud_cnn_latest.h5', compile=False)
-scaler = joblib.load('model/upi_fraud_scaler_latest.pkl')
-le_bank = joblib.load('model/le_bank_latest.pkl')
-le_category = joblib.load('model/le_category_latest.pkl')
-le_device = joblib.load('model/le_device_latest.pkl')
-le_network = joblib.load('model/le_network_latest.pkl')
-feature_names = np.load('model/feature_names_latest.npy', allow_pickle=True)
-threshold = np.load('model/best_threshold_latest.npy', allow_pickle=True)[0]
-threshold = 0.08  # Tuned threshold - catches real fraud, ignores small noise
+#model = load_model('model/upi_fraud_cnn_latest.h5', compile=False)
+#scaler = joblib.load('model/upi_fraud_scaler_latest.pkl')
+#le_bank = joblib.load('model/le_bank_latest.pkl')
+#le_category = joblib.load('model/le_category_latest.pkl')
+#le_device = joblib.load('model/le_device_latest.pkl')
+#le_network = joblib.load('model/le_network_latest.pkl')
+#feature_names = np.load('model/feature_names_latest.npy', allow_pickle=True)
+#threshold = np.load('model/best_threshold_latest.npy', allow_pickle=True)[0]
+#threshold = 0.08  # Tuned threshold - catches real fraud, ignores small noise
 
 # ==========================
 # DATABASE CONNECTION
@@ -103,6 +118,7 @@ def login():
             session['otp_time'] = time.time()
 
             cursor = get_cursor()
+
             cursor.execute(
                 "SELECT email FROM users WHERE mobile=%s",
                 (mobile,)
@@ -111,39 +127,60 @@ def login():
             user = cursor.fetchone()
 
             if not user:
-                return "User not found"
+              return "User not found"
 
             receiver_email = user['email']
 
-            sender_email = EMAIL_CONFIG["email"]
-            sender_password = EMAIL_CONFIG["password"]
-
-            message = MIMEText(
-                f"Your OTP is {otp}. It is valid for 5 minutes."
-            )
-
-            message['Subject'] = "SecurePay OTP Verification"
-            message['From'] = sender_email
-            message['To'] = receiver_email
-
             try:
-                server = smtplib.SMTP('smtp.gmail.com', 587)
-                server.starttls()
-                server.login(sender_email, sender_password)
 
-                server.sendmail(
-                    sender_email,
-                    receiver_email,
-                    message.as_string()
+                url = "https://api.brevo.com/v3/smtp/email"
+
+                payload = {
+                    "sender": {
+                        "name": "SecurePay",
+                        "email": EMAIL_CONFIG["email"]
+                    },
+                    "to": [
+                        {
+                            "email": receiver_email
+                        }
+                    ],
+                    "subject": "SecurePay OTP Verification",
+                    "htmlContent": f"""
+                    <h2>Your OTP is: {otp}</h2>
+                    <p>Valid for 5 minutes.</p>
+                    """
+                }
+
+                headers = {
+                    "accept": "application/json",
+                    "api-key": EMAIL_CONFIG["password"],
+                    "content-type": "application/json"
+                }
+
+                response = requests.post(
+                    url,
+                    json=payload,
+                    headers=headers,
+                    timeout=10
                 )
 
-                server.quit()
+                print(response.text)
+                print("OTP email sent successfully")
 
-            except Exception:
-                print("Email failed, OTP:", otp)
+            except Exception as e:
 
-            return redirect('/verify-otp')
+                print("EMAIL ERROR:", e)
+                print("OTP:", otp)
 
+            return """
+<h2>OTP Sent Successfully</h2>
+<p>Please check your email for the OTP.</p>
+<a href='/verify-otp'>Verify OTP</a>
+"""
+          
+
+              
         # ================= ADMIN LOGIN =================
         elif role == "admin":
 
@@ -272,7 +309,7 @@ def confirm_payment():
             txn['merchant_upi'],
             txn['amount'],
             'SUCCESS',
-            datetime.now(),
+            datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%Y-%m-%d %H:%M:%S'),
             txn['category'],
             txn['age'],
             txn.get('curr_lat'),
@@ -494,10 +531,48 @@ def merchant_profile():
 @app.route('/payment', methods=['GET', 'POST'])
 def payment():
 
+    global model, scaler, le_bank, le_category
+    global le_device, le_network, feature_names, threshold
+
     if request.method == 'POST':
+
+        if model is None:
+
+            model = load_model(
+                'model/upi_fraud_cnn_latest.h5',
+                compile=False
+            )
+
+            scaler = joblib.load(
+                'model/upi_fraud_scaler_latest.pkl'
+            )
+
+            le_bank = joblib.load(
+                'model/le_bank_latest.pkl'
+            )
+
+            le_category = joblib.load(
+                'model/le_category_latest.pkl'
+            )
+
+            le_device = joblib.load(
+                'model/le_device_latest.pkl'
+            )
+
+            le_network = joblib.load(
+                'model/le_network_latest.pkl'
+            )
+
+            feature_names = np.load(
+                'model/feature_names_latest.npy',
+                allow_pickle=True
+            )
+
+            threshold = 0.08
 
         merchant_upi = request.form['upi']
         amount = float(request.form['amount'])
+
 
         cursor = get_cursor()
         cursor.execute(
@@ -770,7 +845,7 @@ def payment():
             merchant_upi,
             amount,
             status,
-            datetime.now(),
+            datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%Y-%m-%d %H:%M:%S'),
             category,
             age,
             curr_lat or None,
@@ -1064,4 +1139,4 @@ def edit_user(user_id):
 # RUN SERVER
 # ==========================
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, use_reloader=False)
